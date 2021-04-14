@@ -4,6 +4,7 @@
 #################################
 
 import sqlite3
+import plotly.graph_objects as go 
 
 
 ERROR_LIST = {
@@ -16,7 +17,7 @@ ERROR_LIST = {
     401: 'Invalid option(none/country/region) for command countries'
 }
 
-OPTION_LIST = ['none', 'sell', 'source', 'ratings', 'cocoa', 'number_of_bars', 'top', 'bottom']
+OPTION_LIST = ['none', 'sell', 'source', 'ratings', 'cocoa', 'number_of_bars', 'top', 'bottom', 'barplot']
 
 DBNAME = 'choc.sqlite'
 
@@ -415,7 +416,97 @@ def process_command(command):
 
     return results
 
+def display_in_terminal(results, response):
+    '''display results in terminal
 
+    Parameters
+    ----------
+    results: tuple
+        results from database
+    response: string
+        user input
+
+    Returns
+    -------
+    '''
+    response = response.split(' ')
+    cocoa = False
+    nob = False
+    for option in response:
+        if 'cocoa' in option:
+            cocoa = True
+        if 'number_of_bars' in option:
+            nob = True
+
+    if response[0] == 'bars':
+        for result in results:
+            temp_list = [element for element in result]
+            for i in range(len(temp_list)):
+                if type(temp_list[i]) == str and len(temp_list[i]) > 12:
+                    temp_list[i] = temp_list[i][:11] + '...'
+            temp_list[3] = str(temp_list[3])
+            temp_list[4] = str(round(temp_list[4]*100,2)) + '%'
+            for temp in temp_list:
+                print(temp.ljust(15)+' ', end='')
+            print('')
+        if response[-1] == 'barplot':
+            if cocoa:
+                barplot('bars', results, 'cocoa')
+            elif nob:
+                barplot('bars', results, 'number_of_bars')
+            else:
+                barplot('bars', results, 'ratings')
+
+    elif response[0] == 'companies' or response[0] == 'countries' or response[0] == 'regions':
+        for result in results:
+            temp_list = [element for element in result]
+            for i in range(len(temp_list)):
+                if type(temp_list[i]) == str and len(temp_list[i]) > 12:
+                    temp_list[i] = temp_list[i][:11] + '...'
+            if cocoa:
+                temp_list[-1] = str(round(temp_list[-1]*100,2)) + '%'
+            else:
+                temp_list[-1] = str(round(temp_list[-1], 1))
+            for temp in temp_list:
+                print(temp.ljust(15)+' ', end='')
+            print('')
+        if response[-1] == 'barplot':
+            if cocoa:
+                barplot(response[0], results, 'cocoa')
+            elif nob:
+                barplot(response[0], results, 'number_of_bars')
+            else:
+                barplot(response[0], results, 'ratings')
+
+def barplot(command, results, option):
+    '''plot bar
+
+    Parameters
+    ----------
+    command: string
+        bars or companies or countries or regions
+    results: tuple
+        results from database
+    option: string
+        ratings or cocoa or number_of_bars
+
+    Returns
+    -------
+    '''
+    xaxis = [result[0] for result in results]
+    if command == 'bars':
+        if option == 'ratings':
+            yaxis = [result[3] for result in results]
+        elif option == 'cocoa':
+            yaxis = [result[4] for result in results]
+    else:
+        yaxis = [result[-1] for result in results]
+    bar_data = go.Bar(x=xaxis, y=yaxis)
+    basic_layout = go.Layout(title=f'{command} by {option}')
+    fig = go.Figure(data=bar_data, layout=basic_layout)
+    fig.show()
+        
+    
 def load_help_text():
     with open('Proj3Help.txt') as f:
         return f.read()
@@ -436,20 +527,8 @@ def interactive_prompt():
             continue
         # process user inpue and retrieve result from database
         results = process_command(response)
+        display_in_terminal(results, response)
         
-        # display results if there is no error
-        for result in results:
-            for element in result:
-                if type(element) == float:
-                    if element < 1:
-                        element = str(int(element*100)) + '%'
-                    else:
-                        element = round(element,1)
-                element = str(element)
-                if len(element) > 12:
-                    element = element[:11] + '...'
-                print(element.ljust(15)+' ', end='')
-            print('')
 
 # Make sure nothing runs or prints out when this file is run as a module/library
 if __name__=="__main__":
